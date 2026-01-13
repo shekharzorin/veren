@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("AGENT") // AMOG_ADMIN, DEVELOPER_ADMIN, BROKERAGE_ADMIN, AGENT
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  projects  Project[] // For Developers
+  bookings  Booking[] // For Agents (Winning booking)
+  clients   Client[]  // For Agents
+}
+
+model Project {
+  id              String   @id @default(uuid())
+  name            String
+  developerId     String
+  developer       User     @relation(fields: [developerId], references: [id])
+  eligibilityMode Boolean  @default(true) 
+  eoiAmount       Float    @default(49500)
+  maxEOIsPerUnit  Int      @default(3)
+  eoiExpiryHours  Int      @default(24)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  assets          Asset[]
+  eois            EOI[]
+  bookings        Booking[]
+  blockedClients  BlockedClient[]
+}
+
+model Asset {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  type      String   // brochure, image, floor_plan
+  url       String
+  label     String?
+}
+
+// Clients belong to an Agent
+model Client {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   
+  agentId   String
+  agent     User     @relation(fields: [agentId], references: [id])
+  createdAt DateTime @default(now())
+  
+  eois      EOI[]
+  bookings  Booking[]
+  
+  @@unique([phone, agentId]) 
+}
+
+// Direct/Protected clients of the Developer (Ineligible for CP)
+model BlockedClient {
+  id          String @id @default(uuid())
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id])
+  phone       String
+  createdAt   DateTime @default(now())
+  
+  @@unique([projectId, phone])
+}
+
+model EOI {
+  id        String    @id @default(uuid())
+  amount    Float
+  status    String    @default("HELD") // HELD, REFUNDED, CONVERTED
+  
+  clientId  String
+  client    Client    @relation(fields: [clientId], references: [id])
+  
+  projectId String
+  project   Project   @relation(fields: [projectId], references: [id])
+  
+  unitId    String?   
+  
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+}
+
+model Booking {
+  id        String   @id @default(uuid())
+  amount    Float
+  
+  clientId  String
+  client    Client    @relation(fields: [clientId], references: [id])
+  
+  projectId String
+  project   Project   @relation(fields: [projectId], references: [id])
+  
+  unitId    String
+  
+  agentId   String
+  agent     User     @relation(fields: [agentId], references: [id])
+  
+  createdAt DateTime @default(now())
+}
