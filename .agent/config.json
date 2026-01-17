@@ -1,0 +1,7 @@
+{
+    "ai_test_mode": "fast",
+    "continuous_learning": false,
+    "execution_speed": "fast",
+    "is_default_profile": true,
+    "save_on_exit": true
+}

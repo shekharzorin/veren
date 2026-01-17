@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
+import { WalletService } from '../services/wallet.service';
 
 export const register = async (req: Request, res: Response) => {
     const { email, password, name, role, phone } = req.body;
@@ -14,10 +15,15 @@ export const register = async (req: Request, res: Response) => {
                 email,
                 password: hashedPassword,
                 name,
-                role: role || 'AGENT',
+                role: 'AGENT', // Forced for public registration
                 phone
             }
         });
+
+        // Guaranteed Wallet Creation
+        const walletType = WalletService.getWalletTypeFromRole(user.role);
+        await WalletService.ensureWallet(user.id, walletType);
+
         res.status(201).json({ message: 'User created', userId: user.id });
     } catch (error) {
         res.status(500).json({ error: 'User creation failed. Email might be in use.' });
@@ -41,6 +47,7 @@ export const login = async (req: Request, res: Response) => {
 
         res.json({ token, user: { id: user.id, name: user.name, role: user.role } });
     } catch (error) {
+        console.error('Login Error:', error);
         res.status(500).json({ error: 'Login failed' });
     }
 };

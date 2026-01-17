@@ -6,8 +6,10 @@
 
 @layer base {
   :root {
-    --background: 248 71% 98%; /* Slate 50 equivelant HSL */
-    --foreground: 222 47% 11%; /* Slate 900 */
+    --background: 248 71% 98%;
+    /* Slate 50 equivelant HSL */
+    --foreground: 222 47% 11%;
+    /* Slate 900 */
   }
 
   body {
@@ -16,9 +18,20 @@
 }
 
 .glass-panel {
-    @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-xl;
+  @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-xl;
+
 }
 
 .premium-card {
-    @apply bg-surface rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300;
+  @apply bg-surface rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300;
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }

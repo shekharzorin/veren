@@ -74,3 +74,46 @@ export const getMyClients = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to fetch clients' });
     }
 };
+export const createClient = async (req: AuthRequest, res: Response) => {
+    try {
+        const { name, phone, email, status, notes } = req.body;
+        const agentId = req.user.id;
+
+        const existing = await prisma.client.findFirst({ where: { phone } });
+        if (existing) {
+            if (existing.agentId !== agentId) {
+                return res.status(409).json({ error: "Client phone number already registered with another agent." });
+            }
+            return res.status(200).json(existing); // Return existing if already yours
+        }
+
+        const client = await prisma.client.create({
+            data: { name, phone, email, status: status || 'NEW', notes, agentId }
+        });
+        res.status(201).json(client);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create client' });
+    }
+};
+
+export const updateClient = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { name, phone, email, status, notes } = req.body;
+        const agentId = req.user.id;
+
+        // Verify ownership
+        const client = await prisma.client.findUnique({ where: { id: String(id) } });
+        if (!client || client.agentId !== agentId) {
+            return res.status(403).json({ error: 'Not authorized to update this client' });
+        }
+
+        const updated = await prisma.client.update({
+            where: { id: String(id) },
+            data: { name, phone, email, status, notes }
+        });
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update client' });
+    }
+};

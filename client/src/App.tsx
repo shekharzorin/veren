@@ -5,34 +5,59 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import DashboardLayout from './components/layout/DashboardLayout';
 import ProjectList from './pages/projects/ProjectList';
 import CreateProject from './pages/projects/CreateProject';
-import ClientList from './pages/clients/ClientList';
-import AddClient from './pages/clients/AddClient';
+import ProjectDetails from './pages/projects/ProjectDetails';
+import Clients from './pages/agent/Clients';
+import CreateEOI from './pages/transactions/CreateEOI';
+import CreateBooking from './pages/transactions/CreateBooking';
+import AgentTransactions from './pages/transactions/AgentTransactions';
+
+import Wallet from './pages/Wallet';
+import PaymentGateway from './pages/PaymentGateway';
+import TransactionSuccess from './pages/transactions/TransactionSuccess';
+import PublicPaymentPage from './pages/public/PublicPaymentPage';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import { PreferencesProvider } from './context/PreferencesContext';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <PreferencesProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-        <Route element={<ProtectedRoute />}>
-          <Route element={<DashboardLayout />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+          {/* Mock Gateway - External Route */}
+          <Route path="/mock-gateway/:paymentId" element={<PaymentGateway />} />
+          <Route path="/pay/:id" element={<PublicPaymentPage />} />
 
-            {/* Project Routes */}
-            <Route path="/projects" element={<ProjectList />} />
-            <Route path="/projects/create" element={<CreateProject />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<DashboardLayout />}>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
 
-            {/* Client Routes */}
-            <Route path="/clients" element={<ClientList />} />
-            <Route path="/clients/add" element={<AddClient />} />
+              {/* Project Routes */}
+              <Route path="/projects" element={<ProjectList />} />
+              <Route path="/projects/create" element={<CreateProject />} />
+              <Route path="/projects/:id" element={<ProjectDetails />} />
 
-            {/* Placeholder routes for now */}
-            <Route path="/transactions" element={<div>Transactions Page (Coming Soon)</div>} />
+              {/* Client Routes */}
+              <Route path="/clients" element={<Clients />} />
+
+              {/* Transaction Routes */}
+              <Route path="/transactions" element={<AgentTransactions />} />
+              <Route path="/transactions/eoi/create" element={<CreateEOI />} />
+              <Route path="/transactions/booking/create" element={<CreateBooking />} />
+              <Route path="/transactions/:id/success" element={<TransactionSuccess />} />
+
+              {/* Wallet */}
+              <Route path="/wallet" element={<Wallet />} />
+
+              {/* Admin */}
+              <Route path="/admin" element={<AdminDashboard />} />
+            </Route>
           </Route>
-        </Route>
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </PreferencesProvider>
   );
 }
 

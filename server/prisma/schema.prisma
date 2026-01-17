@@ -7,6 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ... existing models ...
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -16,36 +18,94 @@ model User {
   phone     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
-  projects  Project[] // For Developers
-  bookings  Booking[] // For Agents (Winning booking)
-  clients   Client[]  // For Agents
+  projects Project[] // For Developers
+  bookings Booking[] // For Agents (Winning booking)
+  clients  Client[] // For Agents
+
+  // Agent Participation
+  joinedProjects ProjectAgent[]
+  
+  // Wallet Relation (One wallet per user/entity)
+
+  // Wallet Relation (One wallet per user/entity)
+  wallet     Wallet?
+  AuditEvent AuditEvent[]
 }
 
 model Project {
-  id              String   @id @default(uuid())
-  name            String
-  developerId     String
-  developer       User     @relation(fields: [developerId], references: [id])
-  eligibilityMode Boolean  @default(true) 
-  eoiAmount       Float    @default(49500)
-  maxEOIsPerUnit  Int      @default(3)
-  eoiExpiryHours  Int      @default(24)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                       String   @id @default(uuid())
+  name                     String
+  developerId              String
+  developer                User     @relation(fields: [developerId], references: [id])
+  eligibilityMode          Boolean  @default(true)
+  eoiAmount                Float    @default(49500)
+  maxEOIsPerUnit           Int      @default(3)
+  eoiExpiryHours           Int      @default(24)
+  commissionRate           Float    @default(2.0)
+  commissionSettlementMode String   @default("MANUAL") // AUTO, MANUAL
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  assets         Asset[]
+  eois           EOI[]
+  bookings       Booking[]
+  blockedClients BlockedClient[]
+
+  // Agent Participation
+  participatingAgents ProjectAgent[]
   
-  assets          Asset[]
-  eois            EOI[]
-  bookings        Booking[]
-  blockedClients  BlockedClient[]
+  // Project-specific wallet (e.g. Escrow for EOIs)
+
+  // Project-specific wallet (e.g. Escrow for EOIs)
+  wallet Wallet?
+
+  // Relations for Rich Data
+  units         UnitType[]
+  unitInstances Unit[] // Individual Units
+  paymentPlan   PaymentMilestone[]
+  amenities     ProjectAmenity[]
+}
+
+model UnitType {
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  name  String // e.g. "1BHK Type A"
+  size  String // e.g. "1200 sqft"
+  price String // e.g. "1.5 Cr" (String for formatted, or Float) - Using String for MVP flexibility
+  type  String // e.g. "1BHK", "2BHK"
+
+  count Int @default(0) // Total units of this type
+
+  unitList Unit[]
+}
+
+model PaymentMilestone {
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  name       String // e.g. "Booking Amount"
+  percentage Float // e.g. 10.0
+  order      Int    @default(0)
+}
+
+model ProjectAmenity {
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  name String // e.g. "Pool", "Gym"
 }
 
 model Asset {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   projectId String
-  project   Project  @relation(fields: [projectId], references: [id])
-  type      String   // brochure, image, floor_plan
+  project   Project @relation(fields: [projectId], references: [id])
+  type      String // brochure, image, floor_plan
   url       String
   label     String?
 }
@@ -54,59 +114,181 @@ model Asset {
 model Client {
   id        String   @id @default(uuid())
   name      String
-  phone     String   
+  phone     String
+  email     String?
+  status    String   @default("NEW") // NEW, CONTACTED, INTERESTED, BOOKING, CLOSED, LOST
+  notes     String?
   agentId   String
   agent     User     @relation(fields: [agentId], references: [id])
   createdAt DateTime @default(now())
-  
-  eois      EOI[]
-  bookings  Booking[]
-  
-  @@unique([phone, agentId]) 
+
+  eois     EOI[]
+  bookings Booking[]
+
+  @@unique([phone, agentId])
 }
 
 // Direct/Protected clients of the Developer (Ineligible for CP)
 model BlockedClient {
-  id          String @id @default(uuid())
-  projectId   String
-  project     Project @relation(fields: [projectId], references: [id])
-  phone       String
-  createdAt   DateTime @default(now())
-  
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  phone     String
+  createdAt DateTime @default(now())
+
   @@unique([projectId, phone])
 }
 
 model EOI {
-  id        String    @id @default(uuid())
-  amount    Float
-  status    String    @default("HELD") // HELD, REFUNDED, CONVERTED
-  
-  clientId  String
-  client    Client    @relation(fields: [clientId], references: [id])
-  
+  id     String @id @default(uuid())
+  amount Float
+  status String @default("PENDING_PAYMENT") // PENDING_PAYMENT, HELD, REFUNDED, CONVERTED
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
   projectId String
-  project   Project   @relation(fields: [projectId], references: [id])
-  
-  unitId    String?   
-  
-  expiresAt DateTime
+  project   Project @relation(fields: [projectId], references: [id])
+
+  unitId String?
+  unit   Unit?   @relation(fields: [unitId], references: [id])
+
+  tokenNumber Int?
+
+  paymentId String?  @unique
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+
+  expiresAt DateTime?
   createdAt DateTime  @default(now())
+
+  @@unique([projectId, tokenNumber])
 }
 
 model Booking {
-  id        String   @id @default(uuid())
-  amount    Float
-  
-  clientId  String
-  client    Client    @relation(fields: [clientId], references: [id])
-  
+  id        String @id @default(uuid())
+  amount    Float // Amount Paid
+  unitPrice Float  @default(0.0) // Total Deal Value
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
   projectId String
-  project   Project   @relation(fields: [projectId], references: [id])
-  
-  unitId    String
-  
+  project   Project @relation(fields: [projectId], references: [id])
+
+  unitId String
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  agentId String
+  agent   User   @relation(fields: [agentId], references: [id])
+
+  paymentId String?  @unique
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// --- FINANCE & WALLETS ---
+
+model Wallet {
+  id       String @id @default(uuid())
+  type     String // ESCROW, DEVELOPER, AGENT, BROKERAGE
+  balance  Float  @default(0.0)
+  currency String @default("INR")
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  projectId String?  @unique
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+}
+
+model Transaction {
+  id       String @id @default(uuid())
+  walletId String
+  wallet   Wallet @relation(fields: [walletId], references: [id])
+
+  amount   Float // Positive only, type determines sign
+  type     String // CREDIT, DEBIT
+  category String // EOI_DEPOSIT, BOOKING_FEE, COMMISSION, WITHDRAWAL, REFUND, PENALTY
+  status   String @default("SUCCESS") // PENDING, SUCCESS, FAILED
+
+  referenceId   String? // ID of the related EOI, Booking, or Payment
+  referenceType String? // EOI, BOOKING, PAYMENT
+  description   String?
+
+  timestamp DateTime @default(now())
+}
+
+model Payment {
+  id           String  @id @default(uuid())
+  amount       Float
+  provider     String  @default("MOCK") // RAZORPAY, CASHFREE, MOCK
+  providerTxId String?
+
+  status String // INITIATED, SUCCESS, FAILED, REFUNDED
+
+  entityId   String // ID of EOI or Booking
+  entityType String // EOI, BOOKING
+
+  meta String? // JSON string
+
+  eoi     EOI?
+  booking Booking?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String // Parse based on key (Int, Float, JSON)
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model Unit {
+  id         String @id @default(uuid())
+  unitNumber String // e.g. "A-101"
+  status     String @default("AVAILABLE") // AVAILABLE, ECOI_HELD, BOOKED, SOLD, BLOCKED
+
+  unitTypeId String
+  unitType   UnitType @relation(fields: [unitTypeId], references: [id])
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  eois     EOI[]
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, unitNumber])
+}
+
+model AuditEvent {
+  id      String @id @default(uuid())
+  type    String // PROJECT_RULE_CHANGE, BOOKING_CONFIRMATION, COMMISSION_SETTLEMENT, SETTING_CHANGE
+  details String // JSON string
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  ipAddress String?
+  timestamp DateTime @default(now())
+}
+
+model ProjectAgent {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
   agentId   String
   agent     User     @relation(fields: [agentId], references: [id])
-  
-  createdAt DateTime @default(now())
+  status    String   @default("ACTIVE") // ACTIVE, INACTIVE, BANNED
+  joinedAt  DateTime @default(now())
+
+  @@unique([projectId, agentId])
 }
